@@ -85,6 +85,7 @@ private:
   ros::Subscriber velocity_sub_;
   ros::Publisher pose_pub_;
   ros::Publisher color_pub_;
+  ros::Publisher range_color_pub_;
   ros::ServiceServer set_pen_srv_;
   ros::ServiceServer teleport_relative_srv_;
   ros::ServiceServer teleport_absolute_srv_;

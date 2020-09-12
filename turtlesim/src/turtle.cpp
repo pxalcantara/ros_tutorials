@@ -55,6 +55,7 @@ Turtle::Turtle(const ros::NodeHandle& nh, const QImage& turtle_image, const QPoi
   velocity_sub_ = nh_.subscribe("cmd_vel", 1, &Turtle::velocityCallback, this);
   pose_pub_ = nh_.advertise<Pose>("pose", 1);
   color_pub_ = nh_.advertise<Color>("color_sensor", 1);
+  range_color_pub_ = nh_.advertise<Color>("range_color_sensor", 1);
   set_pen_srv_ = nh_.advertiseService("set_pen", &Turtle::setPenCallback, this);
   teleport_relative_srv_ = nh_.advertiseService("teleport_relative", &Turtle::teleportRelativeCallback, this);
   teleport_absolute_srv_ = nh_.advertiseService("teleport_absolute", &Turtle::teleportAbsoluteCallback, this);
@@ -139,6 +140,8 @@ bool Turtle::update(double dt, QPainter& path_painter, const QImage& path_image,
     {
       path_painter.setPen(pen_);
       path_painter.drawLine(pos_ * meter_, old_pos * meter_);
+      // path_painter.drawLine( 1* meter_, 1* meter_, 5* meter_, 1* meter_);
+      // ROS_INFO_STREAM("draw line");
     }
     modified = true;
   }
@@ -167,6 +170,7 @@ bool Turtle::update(double dt, QPainter& path_painter, const QImage& path_image,
       pos_.y() < 0 || pos_.y() > canvas_height)
   {
     ROS_WARN("Oh no! I hit the wall! (Clamping from [x=%f, y=%f])", pos_.x(), pos_.y());
+    
   }
 
   pos_.setX(std::min(std::max(static_cast<double>(pos_.x()), 0.0), static_cast<double>(canvas_width)));
@@ -184,11 +188,43 @@ bool Turtle::update(double dt, QPainter& path_painter, const QImage& path_image,
   // Figure out (and publish) the color underneath the turtle
   {
     Color color;
+    Color color_s;
+    QPointF posi;
+    float dist = 1;
+    float dx = dist * cos(orient_);
+    float dy = dist * sin(orient_); 
+    posi.setX(p.x + dx);
+    posi.setY(p.y - dy);
+    QRgb pixel_s = path_image.pixel((posi * meter_).toPoint());
     QRgb pixel = path_image.pixel((pos_ * meter_).toPoint());
     color.r = qRed(pixel);
     color.g = qGreen(pixel);
     color.b = qBlue(pixel);
+
+    color_s.r = qRed(pixel_s);
+    color_s.g = qGreen(pixel_s);
+    color_s.b = qBlue(pixel_s);
+
     color_pub_.publish(color);
+    range_color_pub_.publish(color_s);
+  }
+
+  // Figure out (and publish) the color forward the turtle in a distance defined by pixel_dist
+  {
+    Color color_sensor;
+    QPointF posi_sensor;
+    float pixel_dist = 1;
+    float dx = pixel_dist * cos(orient_);
+    float dy = pixel_dist * sin(orient_); 
+    posi_sensor.setX(p.x + dx);
+    posi_sensor.setY(p.y - dy);
+    QRgb pixel_sensor = path_image.pixel((posi_sensor * meter_).toPoint());
+    
+    color_sensor.r = qRed(pixel_sensor);
+    color_sensor.g = qGreen(pixel_sensor);
+    color_sensor.b = qBlue(pixel_sensor);
+    
+    range_color_pub_.publish(color_sensor);
   }
 
   ROS_DEBUG("[%s]: pos_x: %f pos_y: %f theta: %f", nh_.getNamespace().c_str(), pos_.x(), pos_.y(), orient_);
